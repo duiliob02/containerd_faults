@@ -3,7 +3,8 @@ package main
 import (
 	"go/ast"
 	"go/parser"
-	//"go/printer"
+	"go/printer"
+	"strings"
 	"go/token"
 	"log"
 	"os"
@@ -15,6 +16,7 @@ func main() {
 	// Creo un nuovo FileSet per poter 
 	fset := token.NewFileSet()
 
+	// "MACRO" per il file .go
 	const path_to_source = "/home/parallels/Desktop/Progetto_Tesi/containerd/runtime/v2/runc/container.go"
 
 	// Prendo il file da analizzare e mutare
@@ -33,12 +35,37 @@ func main() {
 		n := c.Node()
 		switch x := n.(type) {
 		case *ast.FuncDecl:
-			if x.Name.Name == "NewContainer" {
-				log.Println("Trovata funzione: ", x.Name.Name)
+
+			// Cerco la funzione NewContainer(...)
+			if x.Name.Name == "NewContainer" && len(x.Body.List) > 1 {
+
+				// Controllo tutti i blocchi if
+				for _, stmt := range x.Body.List {
+					if blocco_if, ok := stmt.(*ast.IfStmt); ok {
+
+						// Cerco il blocco con condizione "r.Options.GetValue() != nil"
+						var condition strings.Builder
+						printer.Fprint(&condition, fset, blocco_if.Cond)
+
+						// La cerco hardcoded anche se non è la soluzione più efficiente e sicura
+						// Per il caso di studio, conoscendo il codice usato da containerd lo possofare
+						if condition.String() == "r.Options.GetValue() != nil" {
+
+							// Essendo che sono già all'interno di un nodo, non posso
+							// chiamare c.Replace(...), quindi modifico direttamente la condizione dell'if
+							log.Println("Trovata condizione da mutare: ", condition.String())
+							blocco_if.Cond.(*ast.BinaryExpr).Op = token.EQL
+						}
+					}
+				}
 			}
 		}
 		return true
 	})
+
+	// Stampo l'albero modificato
+	log.Println("AST modificato:")
+	printer.Fprint(os.Stdout, fset, file)
 
 
 }
