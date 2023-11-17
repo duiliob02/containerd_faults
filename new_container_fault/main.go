@@ -4,7 +4,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/printer"
-	"strings"
 	"go/token"
 	"log"
 	"os"
@@ -39,22 +38,16 @@ func main() {
 			// Cerco la funzione NewContainer(...)
 			if x.Name.Name == "NewContainer" && len(x.Body.List) > 1 {
 
-				// Controllo tutti i blocchi if
+				// Controllo tutti i blocchi Assegnazione
 				for _, stmt := range x.Body.List {
-					if blocco_if, ok := stmt.(*ast.IfStmt); ok {
-
-						// Cerco il blocco con condizione "r.Options.GetValue() != nil"
-						var condition strings.Builder
-						printer.Fprint(&condition, fset, blocco_if.Cond)
-
-						// La cerco hardcoded anche se non è la soluzione più efficiente e sicura
-						// Per il caso di studio, conoscendo il codice usato da containerd lo possofare
-						if condition.String() == "r.Options.GetValue() != nil" {
-
-							// Essendo che sono già all'interno di un nodo, non posso
-							// chiamare c.Replace(...), quindi modifico direttamente la condizione dell'if
-							log.Println("Trovata condizione da mutare: ", condition.String())
-							blocco_if.Cond.(*ast.BinaryExpr).Op = token.EQL
+					if assegnazione, ok := stmt.(*ast.AssignStmt); ok {
+						
+						// Cerco l'assegnazione dei parametri al container
+						if ident, ok := assegnazione.Lhs[0].(*ast.Ident); ok && ident.Name == "container" {
+							log.Println("Trovata assegnazione container.")
+							
+							// Rimuovo i parametri
+							assegnazione.Rhs[0].(*ast.UnaryExpr).X.(*ast.CompositeLit).Elts = nil
 						}
 					}
 				}
@@ -66,6 +59,18 @@ func main() {
 	// Stampo l'albero modificato
 	log.Println("AST modificato:")
 	printer.Fprint(os.Stdout, fset, file)
+
+	// Inietto il fault generato
+	injectedFile, err := os.Create(path_to_source)
+	if err != nil {
+		panic("Errore riscrittura file")
+	}
+	defer injectedFile.Close()
+	err = printer.Fprint(injectedFile, fset, file)
+	if err != nil {
+		panic("Errore modifica fileSet")
+	}
+	log.Println("File riscritto, eseguo il test")
 
 
 }
