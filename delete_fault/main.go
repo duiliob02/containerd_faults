@@ -35,20 +35,12 @@ func main() {
 		switch x := n.(type) {
 		case *ast.FuncDecl:
 
-			// Cerco la funzione NewContainer(...)
-			if x.Name.Name == "NewContainer" && len(x.Body.List) > 1 {
+			// Cerco la funzione Delete(...)
+			if x.Name.Name == "Delete" && len(x.Body.List) > 1 {
 
-				// Controllo tutti i blocchi Assegnazione
 				for _, stmt := range x.Body.List {
-					if assegnazione, ok := stmt.(*ast.AssignStmt); ok {
-						
-						// Cerco l'assegnazione dei parametri al container
-						if ident, ok := assegnazione.Lhs[0].(*ast.Ident); ok && ident.Name == "container" {
-							log.Println("Trovata assegnazione container.")
-							
-							// Rimuovo i parametri
-							assegnazione.Rhs[0].(*ast.UnaryExpr).X.(*ast.CompositeLit).Elts = nil
-						}
+					if ifStmt, ok := stmt.(*ast.IfStmt); ok {
+						ifStmt.Cond = &ast.Ident{Name: "true"}
 					}
 				}
 			}
@@ -74,3 +66,4 @@ func main() {
 
 
 }
+
